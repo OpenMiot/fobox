@@ -1,0 +1,4 @@
+orm/main.py
+venv/
+**/__pycache__/
+*.pyc
