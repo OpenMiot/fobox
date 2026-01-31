@@ -4,37 +4,40 @@ from io import TextIOBase
 from collections import namedtuple
 from itertools import chain
 from xml.etree.ElementTree import XMLPullParser
+from . import exceptions
 import re
-
-
-EntryPoint = namedtuple('EntryPoint', ('path', 'query'))
 
 
 class App:
     def __init__(self):
-        self._loaded ={}
+        self._components = {}
+        self.entry_point = None
     
-    def load(self, name: str, file: TextIOBase) -> None:
-        self._loaded[name] = parse_component(file)
+    def load(self, file: TextIOBase) -> None:
+        for child in parse_component(file).find_by_tag('Geety').children:
+            if child.tag in self._components:
+                raise exceptions.ComponentAlreadyExists(child.tag)
+            self._components[child.tag] = child
     
+    def set_entry_point(self,
+                        entry_point: str | Component) -> None:
+        self.entry_point = self._components[entry_point] if issubclass(type(entry_point), str) else entry_point
+                        
     def html(self,
-             entry_point: EntryPoint | Component = EntryPoint('Card', 'Geety App'),
              *,
+             component: Component | None = None,
              with_headers: bool = True) -> str:
+        if not self.entry_point:
+            raise exceptions.EntryPointNotSet()
+        if not component:
+            component = self.entry_point
+
         html = ''
         if with_headers:
-            html += '<!DOCTYPE html>'
+            html += '<!DOCTYPE html>\n'
             html += '<html><head></head><body>'
-        
-        if issubclass(type(entry_point), EntryPoint):
-            entry_point = self._loaded[entry_point.path].query(entry_point.query)
-        html += f'<{entry_point.tag}>'
 
-        for child in entry_point.children:
-            html += self.html(child, with_headers=False)
-
-        html += entry_point.content
-        html += f'</{entry_point.tag}>'
+        html += component.html()
 
         if with_headers:
             html += '</body></html>'
@@ -53,6 +56,10 @@ class Component:
         self.args = args or {}
         self.children = children or []
         self.content = content
+    
+    def html(self):
+        html = '<{self.tag}>'
+        return f' {' '.join([f"{key}=\"{val}\"" for key, val in self.args.items()])}>{' '.join([child.html() for child in self.children])}</{self.tag}>'
     
     def query(self, query):
         spl = list(filter(str, re.split(r'([>\.# ])', query)))
