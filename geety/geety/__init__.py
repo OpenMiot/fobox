@@ -37,7 +37,7 @@ class App:
             html += '<!DOCTYPE html>\n'
             html += '<html><head></head><body>'
 
-        html += component.html()
+        html += component.html(self._components)
 
         if with_headers:
             html += '</body></html>'
@@ -57,9 +57,23 @@ class Component:
         self.children = children or []
         self.content = content
     
-    def html(self):
-        html = '<{self.tag}>'
-        return f' {' '.join([f"{key}=\"{val}\"" for key, val in self.args.items()])}>{' '.join([child.html() for child in self.children])}</{self.tag}>'
+    def html(self, components):
+        if self.tag in components:
+            component = components[self.tag]
+            parent_tag = component.args.get('Geety:Extends', 'div')
+            html = f'<{parent_tag} {' '.join([f"{key}=\"{val}\"" for key, val in component.args.items()])}>'
+            for child in component.children:
+                html += child.html(components)
+            html += component.content
+            html += f'</{parent_tag}>'
+            return html
+        else:
+            html = f'<{self.tag} {' '.join([f"{key}=\"{val}\"" for key, val in self.args.items()])}>'
+            for child in self.children:
+                html += child.html(components)
+            html += self.content
+            html += f'</{self.tag}>'
+            return html
     
     def query(self, query):
         spl = list(filter(str, re.split(r'([>\.# ])', query)))
