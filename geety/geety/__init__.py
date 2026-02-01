@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Optional
 from io import TextIOBase
-from collections import namedtuple
 from itertools import chain
 from xml.etree.ElementTree import XMLPullParser
 from . import exceptions
@@ -37,7 +36,7 @@ class App:
             html += '<!DOCTYPE html>\n'
             html += '<html><head></head><body>'
 
-        html += component.html(self._components)
+        html += component.html(self._components, {}, {})
 
         if with_headers:
             html += '</body></html>'
@@ -57,15 +56,24 @@ class Component:
         self.children = children or []
         self.content = content
     
-    def html(self, components):
+    def html(self, components, args, variables):
         if self.tag in components:
+            signature = {}
             component = components[self.tag]
-            parent_tag = component.args.get('Geety:Extends', 'div')
+            parent_tag = component.args.get('{Geety}extends', 'div')
             html = f'<{parent_tag} {' '.join([f"{key}=\"{val}\"" for key, val in component.args.items()])}>'
             for child in component.children:
-                html += child.html(components)
+                if child.tag == '{Geety}arg':
+                    signature[child.args['name']] = child.args.get('def')
+                    variables |= signature | args | self.args
+                else:
+                    for var in variables:
+                        child.args = {key: val.replace(f'${var}', variables[var]) for key, val in child.args.items()}
+                        child.content = child.content.replace(f'${var}', variables[var])
+                    html += child.html(components, {}, variables)
             html += component.content
             html += f'</{parent_tag}>'
+            print(signature)
             return html
         else:
             html = f'<{self.tag} {' '.join([f"{key}=\"{val}\"" for key, val in self.args.items()])}>'
