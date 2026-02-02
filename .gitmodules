@@ -1,0 +1,3 @@
+[submodule "slinn"]
+	path = slinn
+	url = https://github.com/OpenMiot/slinn.git
