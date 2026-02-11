@@ -5,7 +5,6 @@ from ..typemap import typemap as tm
 from typing import Any
 from functools import partial
 import asyncpg
-import asyncio
 
 
 class PostgresCollection(CollectionProtocol):
