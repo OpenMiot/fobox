@@ -1,6 +1,13 @@
 <?xml version="1.0"?>
 <Geety xmlns:Geety="Geety">
-    <Card class="Card">
+    <Image>
+        <p>
+            <Geety:Content/>
+            Nigga
+        </p>
+    </Image>
+
+    <Card class="'Card'">
         <style>
             .Card{
                 background: #ccc;
@@ -9,18 +16,39 @@
                 display: inline-block;
             }
         </style>
-
-        <Geety:arg name="test"/>
-
-        <div>Hello, $test</div>
+        $test
+        <Geety:Arg name="test"/>
+        <p><Image>
+            <Geety:For each="elem:Content">
+                <!--<Geety:Set elem="5"/>-->
+                $elem
+            </Geety:For>
+            LOLKEK
+        </Image></p>
+        <ul>
+            <Geety:For each="_:users">
+                <Geety:For each="elem:Content">
+                    <!--<Geety:Set elem="5"/>-->
+                    <li>$elem</li>
+                </Geety:For>
+                <Geety:For each="elem:Content">
+                    <!--<Geety:Set elem="5"/>-->
+                    <li>$elem</li>
+                </Geety:For>
+            </Geety:For>
+        </ul>
+        <div><p>Hi, $test</p></div>
+        <div>$test 9016436</div>
     </Card>
 
     <App>
-        <Geety:Set a="1" />
-        <Geety:Set b="'$a'" c="'lolkek'" />
+        <Geety:Set a="1"/>
+        <Geety:Set b="'$a'" c="'lolkek'"/>
 
         <Geety:For each="user:users">
-            <Card test="'$user'"/>
+            <Card test="'$user'">
+                Welcome
+            </Card>
         </Geety:For>
 
         <p>

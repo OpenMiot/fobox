@@ -3,23 +3,53 @@ from typing import Optional
 from io import TextIOBase
 from collections.abc import Generator
 from itertools import chain
-from xml.etree.ElementTree import XMLPullParser
+from xml.etree import ElementTree as ET
 from . import exceptions
 import re
 
 
 VAR_PATTERN = re.compile(r'\$([\w\.]+)')
+INSTRUCTIONS = ('{Geety}Arg', '{Geety}Set', '{Geety}For', '{Geety}Content')
 
 
-def var_pattern_apply_content(content, context):
-    return VAR_PATTERN.sub(lambda m: str(context.get(m.group(1), m.group(0))), content)
+def var_pattern_apply_content(content, context, components, prevs):
+    context = context.copy()
+    for var in VAR_PATTERN.findall(content):
+        if issubclass(type(context.get(var)), Component):
+            context[var] = context[var].render(components, context, prevs)
+    return VAR_PATTERN.sub(lambda m: str({
+        key: val
+        for key, val in context.items()
+    }.get(m.group(1), m.group(0))), content)
 
 
-def var_pattern_apply_args(args, context):
+def var_pattern_apply_args(args, context, components, prevs):
     return {
-        key: eval(var_pattern_apply_content(val, context))
+        key: eval(var_pattern_apply_content(val, context, components, prevs))
         for key, val in args.items()
     }
+
+
+def list_strip(lst):
+    if not lst:
+        return []
+
+    start = 0
+    while start < len(lst) and type(lst[start]) is str and lst[start].isspace():
+        start += 1
+    
+    end = len(lst) - 1
+    while end >= 0 and type(lst[end]) is str and lst[end].isspace():
+        end -= 1
+    
+    return lst[start : end + 1] if end >= start else []
+
+
+def merge_dicts(sec, pri):
+    for key, value in pri.items():
+        if value is None and key in sec:
+            continue
+        sec[key] = value
 
 
 class Page:
@@ -29,8 +59,11 @@ class Page:
     
     def load(self, file: TextIOBase) -> None:
         for child in parse_component(file).find_by_tag('Geety').children:
+            if type(child) is str:
+                continue
             if child.tag in self._components:
                 raise exceptions.ComponentAlreadyExists(child.tag)
+            child._is_def = True
             self._components[child.tag] = child
     
     def set_entry_point(self,
@@ -45,7 +78,7 @@ class Page:
         if not self.entry_point:
             raise exceptions.EntryPointNotSet()
         
-        body = (component or self.entry_point).render(self._components, context or {})
+        body = (component or self.entry_point).render(self._components, context or {}, [])
 
         if not with_headers:
             return body
@@ -63,60 +96,91 @@ class Component:
             self,
             *,
             tag: str = '',
-            args: dict = None,
-            children: list[Component] = None,
-            content: str = ''):
+            args: dict | None = None,
+            children: list[Component] | None = None,
+            parent: Component | None = None,
+            _is_def: bool = False):
         self.tag = tag
         self.args = args or {}
-        self.children = children or []
-        self.content = content
+        self.children = list_strip(children or [])
+        self.parent = parent
+        self._is_def = _is_def
     
     def copy(self) -> Component:
         return Component(
             tag=self.tag,
             args=self.args.copy(),
-            children=[child.copy() for child in self.children],
-            content=self.content
+            children=[
+                child if type(child) is str else child.copy()
+                for child in self.children
+            ],
+            parent=self.parent,
+            _is_def=self._is_def
         )
     
-    def render(self, components: dict, context: dict):
-        if self.tag in components:
-            signature = {}
-            component = components[self.tag]
-            parent_tag = component.args.get('{Geety}extends', 'div')
-            html = f'<{parent_tag} {' '.join([f"{key}=\"{val}\"" for key, val in component.args.items()])}>'
-            for child in component.children:
-                child = child.copy()
-                if child.tag == '{Geety}arg':
-                    signature[child.args['name']] = child.args.get('def')
-                    context.update(signature | self.args)
-                elif child.tag == '{Geety}Set':
-                    child.args = var_pattern_apply_args(child.args, context)
-                    context.update(child.args)
-                elif child.tag == '{Geety}For':
-                    element_name, iterable_name = child.args['each'].split(':')
-                    for elem in context[iterable_name]:
-                        for subchild in child.children:
-                            subchild = subchild.copy()
-                            context[element_name] = elem
-                            subchild.args = var_pattern_apply_args(subchild.args, context)
-                            html += subchild.render(components, context.copy())
+    def render(self, components: dict, context: dict, prevs: list[Component]) -> str:
+        def find_prev(prevs):
+            for i in range(1, len(prevs) - 1):
+                if prevs[-i].is_def():
+                    return prevs[-i-1]
+            return None
+        
+        component = components.get(self.tag, self).copy()
+        tag = component.args.get('{Geety}Extends', 'div') if self.tag in components else self.tag
+
+        html = ''
+        match tag:
+            case '{Geety}Content':
+                prev = find_prev(prevs)
+                if type(prev) is RenderedComponent:
+                    html += prev.html
+            case '{Geety}Set':
+                context.update(var_pattern_apply_args(component.args, context, components, prevs+[self]))
+            case '{Geety}For':
+                element_name, iterable_name = component.args['each'].split(':')
+                if iterable_name == 'Content':
+                    prev = find_prev(prevs)
+                    if type(prev) is RenderedComponent:
+                        html += prev.html
                 else:
-                    child.args = var_pattern_apply_args(child.args, context)
-                    child.content = var_pattern_apply_content(child.content, context)
-                    html += child.render(components, context.copy())
-            html += component.content
-            html += f'</{parent_tag}>'
-            return html
-        else:
-            html = f'<{self.tag} {' '.join([f"{key}=\"{val}\"" for key, val in self.args.items()])}>'
-            for child in self.children:
-                html += child.render(components, {})
-            html += self.content
-            html += f'</{self.tag}>'
-            return html
+                    for elem in context[iterable_name]:
+                        context[element_name] = elem
+                        for subchild in component:
+                            if type(subchild) is str:
+                                html += var_pattern_apply_content(subchild, context, components, prevs+[self])
+                            else:
+                                subchild = subchild.copy()
+                                html += subchild.render(components, context, prevs+[self])
+            case '{Geety}Arg': ...  # skip
+            case _:
+                signature = {
+                    arg.args['name']: arg.args.get('def')
+                    for arg in component.find_all_by_tag('{Geety}Arg')
+                }
+                if component.is_def():
+                    merge_dicts(signature, var_pattern_apply_args(self.args, context, components, prevs+[self]))
+                    merge_dicts(context, signature)
+                component.args = var_pattern_apply_args(component.args, context, components, prevs+[self])
+                context.update(component.args)
+                html += f'<{tag} {' '.join([f"{key}=\"{val}\"" for key, val in component.args.items()])}>'
+                if self.tag not in components or self.is_def():
+                    for child in self:
+                        if type(child) is str:
+                            html += var_pattern_apply_content(child, context, components, prevs+[self])
+                        else:
+                            html += child.render(components, context, prevs+[self])
+                elif self.tag in components and not self.is_def():
+                    html += components[self.tag].copy().render(components, context, prevs+[RenderedComponent.from_component(
+                        ''.join([
+                                subchild if type(subchild) is str else subchild.render(components, context, prevs)
+                                for subchild in self
+                        ]), self
+                    )])
+        html += f'</{tag}>' if tag not in INSTRUCTIONS else ''
+        return html
     
     def query(self, query):
+        # TODO: add all type of queries (for tags ' ', for classes '.', for ids '#', for children '>')
         spl = list(filter(str, re.split(r'([>\.# ])', query)))
         print(spl)
         if len(spl) % 2 == 1:
@@ -137,28 +201,83 @@ class Component:
         if self.tag == tag:
             yield self
         for child in self.children:
-            yield from child.find_all_by_tag(tag)
+            if type(child) is not str:
+                yield from child.find_all_by_tag(tag)
+    
+    def is_def(self):
+        #return self.parent and not self.parent.parent
+        return self._is_def
                     
     def __repr__(self) -> str:
-        return f'<Component {self.tag} [{", ".join([f"{key}={val}" for key, val in self.args.items()])}] with {len(self.children)} children "{self.content}">'
+        return f'<Component {'definition' if self.is_def() else ''} {self.tag} [{", ".join([f"{key}={val}" for key, val in self.args.items()])}] with {len(self.children)} children>'
+
+    def __iter__(self) -> Generator[Component]:
+        yield from self.children
+
+
+class RenderedComponent(Component):
+    def __init__(
+            self,
+            html: str,
+            *,
+            tag: str = '',
+            args: dict | None = None,
+            children: list[Component] | None = None,
+            parent: Component | None = None,
+            _is_def: bool = False):
+        Component.__init__(
+            self,
+            tag=tag,
+            args=args,
+            children=children,
+            parent=parent,
+            _is_def=_is_def
+        )
+        self.html = html
+
+    def copy(self) -> Component:
+        return Component(
+            tag=self.tag,
+            args=self.args.copy(),
+            children=[
+                child if type(child) is str else child.copy()
+                for child in self.children
+            ],
+            parent=self.parent,
+            _is_def=self._is_def
+        )
+
+    def render(self, components: dict, context: dict, prevs: list[Component]) -> str:
+        return self.html
+
+    @staticmethod
+    def from_component(html: str, component: Component) -> RenderedComponent:
+        component = component.copy()
+        return RenderedComponent(
+            html,
+            tag=component.tag,
+            args=component.args,
+            children=component.children,
+            parent=component.parent,
+            _is_def=component._is_def
+        )
+    
 
 
 def parse_component(file: TextIOBase) -> Optional[Component]:
-    parser = XMLPullParser(['start', 'end'])
-    stack = []
-    for line in file:
-        parser.feed(line)
-        for event, elem in parser.read_events():
-            if event == 'start':
-                stack.append(Component(
-                    tag=elem.tag,
-                    args=elem.attrib.copy()
-                ))
-            elif event == 'end' and len(stack) > 1:
-                stack[-1].content = elem.text or ''
-                stack[-2].children.append(stack[-1])
-                del stack[-1]
-    return stack[0] if stack else None
+    # TODO: rewrite with ET.XMLPoolParser 
+    def _elem_to_comp(elem: ET.Element, parent: Component | None = None) -> Component:
+        comp = Component(tag=elem.tag, args=elem.attrib.copy(), parent=parent)
+        if elem.text:
+            comp.children.append(elem.text)
+        for child in elem:
+            comp.children.append(_elem_to_comp(child, parent=comp))
+            if child.tail:
+                comp.children.append(child.tail)
+        return comp
+    
+    content = file.read()
+    return _elem_to_comp(ET.fromstring(content)) if content else None
 
 
 def print_tree(component, lvl=0) -> None:
