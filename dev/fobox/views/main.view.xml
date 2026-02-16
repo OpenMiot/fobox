@@ -20,10 +20,31 @@
             .Card:has(#gold){
                 background: gold !important;
             }
+            .Card:has(#mrybs){
+                border: 3px solid orange;
+            }
+            .Card:has(#_001kpp){
+                border: 2px solid orange;
+            }
+            .Card:has(#test){
+                border: 1px solid orange;
+            }
         </style>
         <Geety:If cond="$test == 'mrybs'">
             <div id="'gold'"></div>
         </Geety:If>
+
+        <Geety:Switch>
+            <Geety:Case cond="$test == 'mrybs'">
+                <div id="'mrybs'"></div>
+            </Geety:Case>
+            <Geety:Case cond="$test == '001kpp'">
+                <div id="'_001kpp'"></div>
+            </Geety:Case>
+            <Geety:Case cond="$test == 'test'">
+                <div id="'test'"></div>
+            </Geety:Case>
+        </Geety:Switch>
 
         $test
         <p><Image>

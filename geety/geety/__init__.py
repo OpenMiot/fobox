@@ -176,6 +176,14 @@ class Component:
                             html += var_pattern_apply_content(child, context, components, prevs+[self])
                         else:
                             html += child.render(components, context, prevs+[self])
+            case '{Geety}Switch':
+                for case in self.find_all_by_tag('{Geety}Case'):
+                    if cond_exec(case.args.get('cond', 'False'), context, components, prevs):
+                        for child in case:
+                            if type(child) is str:
+                                html += var_pattern_apply_content(child, context, components, prevs+[self])
+                            else:
+                                html += child.render(components, context, prevs+[self])
             case '{Geety}Arg': ...  # skip
             case _:
                 signature = {
