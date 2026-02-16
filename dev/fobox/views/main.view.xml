@@ -8,6 +8,8 @@
     </Image>
 
     <Card class="'Card'">
+        <Geety:Arg name="test"/>
+
         <style>
             .Card{
                 background: #ccc;
@@ -15,9 +17,15 @@
                 border-radius: 15px;
                 display: inline-block;
             }
+            .Card:has(#gold){
+                background: gold !important;
+            }
         </style>
+        <Geety:If cond="$test == 'mrybs'">
+            <div id="'gold'"></div>
+        </Geety:If>
+
         $test
-        <Geety:Arg name="test"/>
         <p><Image>
             <Geety:For each="elem:Content">
                 <!--<Geety:Set elem="5"/>-->

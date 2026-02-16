@@ -9,7 +9,7 @@ import re
 
 
 VAR_PATTERN = re.compile(r'\$([\w\.]+)')
-INSTRUCTIONS = ('{Geety}Arg', '{Geety}Set', '{Geety}For', '{Geety}Content')
+INSTRUCTIONS = ('{Geety}Arg', '{Geety}Set', '{Geety}For', '{Geety}Content', '{Geety}If')
 
 
 def var_pattern_apply_content(content, context, components, prevs):
@@ -50,6 +50,24 @@ def merge_dicts(sec, pri):
         if value is None and key in sec:
             continue
         sec[key] = value
+
+
+def cond_exec(condition, context, components=None, prevs=None):
+    new_context = {}
+    for var in VAR_PATTERN.findall(condition):
+        if var not in context:
+            return False
+        if issubclass(type(context[var]), Component):
+            new_context[var] = context[var].render(components, context, prevs)
+        elif issubclass(type(context[var]), str):
+            new_context[var] = '\'' + context[var] + '\''
+        else:
+            new_context[var] = context[var]
+    condition = VAR_PATTERN.sub(lambda m: str({
+        key: val
+        for key, val in new_context.items()
+    }.get(m.group(1), m.group(0))), condition)
+    return eval(condition)
 
 
 class Page:
@@ -151,6 +169,13 @@ class Component:
                             else:
                                 subchild = subchild.copy()
                                 html += subchild.render(components, context, prevs+[self])
+            case '{Geety}If':
+                if cond_exec(self.args.get('cond', 'False'), context, components, prevs):
+                    for child in self:
+                        if type(child) is str:
+                            html += var_pattern_apply_content(child, context, components, prevs+[self])
+                        else:
+                            html += child.render(components, context, prevs+[self])
             case '{Geety}Arg': ...  # skip
             case _:
                 signature = {
@@ -162,7 +187,7 @@ class Component:
                     merge_dicts(context, signature)
                 component.args = var_pattern_apply_args(component.args, context, components, prevs+[self])
                 context.update(component.args)
-                html += f'<{tag} {' '.join([f"{key}=\"{val}\"" for key, val in component.args.items()])}>'
+                html += f'<{tag} {' '.join([f"{key}=\"{val}\"" for key, val in component.args.items()])}>' if not self.is_def() else ''
                 if self.tag not in components or self.is_def():
                     for child in self:
                         if type(child) is str:
@@ -176,7 +201,7 @@ class Component:
                                 for subchild in self
                         ]), self
                     )])
-        html += f'</{tag}>' if tag not in INSTRUCTIONS else ''
+        html += f'</{tag}>' if tag not in INSTRUCTIONS and not self.is_def() else ''
         return html
     
     def query(self, query):
