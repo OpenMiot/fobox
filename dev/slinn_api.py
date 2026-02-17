@@ -1,0 +1,184 @@
+from slinn import slinn_root, Preprocessor
+from slinn.tools.manage.misc import (
+    replace_all, add_quotes_to_list
+)
+from slinn.tools.manage.defaults import APP_CONFIG
+import os
+import json
+import shutil
+import sys
+import slinn
+
+
+class SlinnApiException(Exception): ...
+
+
+class AppExistsException(SlinnApiException):
+    def __init__(self, app_name):
+        super().__init__(f'app named \'{app_name}\' exists')
+
+
+class AppNotExistException(SlinnApiException):
+    def __init__(self, app_name):
+        super().__init__(f'app named \'{app_name}\' does not exist')
+
+
+class SlinnAPI:
+    @staticmethod
+    def get_config() -> dict:
+        with open('project.json', 'r') as project:
+            project_json = json.load(project)
+            if 'apps' not in project_json.keys():
+                project_json['apps'] = []
+            return project_json
+    
+    @staticmethod
+    def update_config(updates: dict | None = None) -> None:
+        updates = updates or {}
+        project_json = SlinnAPI.get_config()
+        if 'apps' not in project_json.keys():
+            return
+        if 'apps' in updates:
+            del updates['apps']
+        project_json['apps'] = [app for app in project_json['apps'] if os.path.isdir(app)]
+        project_json.update(updates)
+        with open('project.json', 'w') as project:
+            json.dump(project_json, project, indent=4)
+
+    @staticmethod
+    def create_app(name: str, hosts: tuple[str] = ()) -> None:
+        pp = Preprocessor()
+        ensure_appname = replace_all(name, '-&$#!@%^().,', '_')
+        if os.path.isdir(ensure_appname):
+            raise AppExistsException(name)
+        os.mkdir(ensure_appname)
+        with open(f'{ensure_appname}/__init__.py', 'w') as fw:
+            with slinn_root('/defaults/app/__init__.py.template', 'r') as fr:
+                fw.write(pp.preprocess(fr.read(), {
+                    'appname': ensure_appname
+                }))
+        with open(f'{ensure_appname}/app.py', 'w') as fw:
+            with slinn_root('/defaults/app/app.py.template', 'r') as fr:
+                fw.write(pp.preprocess(fr.read(), {
+                    'hosts': ', '.join(add_quotes_to_list(hosts))
+                }))
+        with open(f'{ensure_appname}/config.json', 'w') as f:
+            json.dump(APP_CONFIG, f, indent=4)
+        with open('project.json', 'r') as f:
+            fj = json.load(f)
+        if 'apps' not in fj.keys():
+            fj['apps'] = []
+        fj['apps'].insert(0, ensure_appname)
+        with open('project.json', 'w') as f:
+            json.dump(fj, f, indent=4)
+        SlinnAPI.update_config()
+    
+    @staticmethod
+    def create_app_from_template(name, template_name: str, path: str = '.') -> None:
+        apppath = (path + '?').replace('/?', '').replace('?', '')
+        config = SlinnAPI.get_config()
+        if name in config['apps']:
+            raise AppExistsException(name)
+        config['apps'].insert(0, name)
+        with open('project.json', 'w') as project:
+            json.dump(config, project, indent=4)
+        try:
+            shutil.copytree(f'{slinn.root}/templates/{template_name}/', f'{apppath}/{name}',
+                            ignore=shutil.ignore_patterns('data'))
+            os.makedirs(f'{apppath}/templates_data', exist_ok=True)
+            try:
+                shutil.copytree(f'{slinn.root}/templates/{template_name}/data/',
+                                f'{apppath}/templates_data/{template_name}')
+            except (FileExistsError, FileNotFoundError):
+                pass
+        except (FileExistsError, FileNotFoundError):
+            pass
+
+    @staticmethod
+    def delete_app(name: str, path: str = '.') -> None:
+        apppath = (path + '?').replace('/?', '').replace('?', '')
+        ensure_appname = replace_all(name, '-&$#!@%^().,', '_')
+        if not os.path.isdir(ensure_appname):
+            raise AppNotExistException(name)
+        shutil.rmtree(ensure_appname)
+        shutil.rmtree(f'{apppath}/templates_data/{ensure_appname}', ignore_errors=True)
+        if os.path.isdir(f'{apppath}/templates_data'):
+            if len(os.listdir(f'{apppath}/templates_data')) == 0:
+                shutil.rmtree(f'{apppath}/templates_data')
+        SlinnAPI.update_config()
+
+    @staticmethod
+    def set_project_name(name: str):
+        SlinnAPI.update_config({'name': name})
+
+    @staticmethod
+    def set_host(host: str):
+        SlinnAPI.update_config({'host': host})
+
+    @staticmethod
+    def set_port(port: int):
+        SlinnAPI.update_config({'port': port})
+
+    @staticmethod
+    def disable_ssl():
+        SlinnAPI.update_config({'ssl': {
+            'fullchain': False,
+            'key': False
+        }})
+
+    @staticmethod
+    def set_ssl_certs(public_cert_path: str, private_cert_path: str):
+        SlinnAPI.update_config({'ssl': {
+            'fullchain': public_cert_path,
+            'key': private_cert_path
+        }})
+
+    @staticmethod
+    def set_debug(mode: bool):
+        SlinnAPI.update_config({'debug': mode})
+
+    @staticmethod
+    def get_apps():
+        return set(SlinnAPI.get_config()['apps'])
+
+    @staticmethod
+    def get_name():
+        return SlinnAPI.get_config()['name']
+    
+    @staticmethod
+    def is_ssl():
+        config = SlinnAPI.get_config()
+        return 'ssl' in config and \
+                'fullchain' in config['ssl'] and \
+                config['ssl']['fullchain'] and \
+                'key' in config['ssl'] and \
+                config['ssl']['key']
+    
+    @staticmethod
+    def get_link():
+        config = SlinnAPI.get_config()
+        is_ssl = SlinnAPI.is_ssl()
+        protocol = 'https' if is_ssl else 'http'
+        return (
+            f'{protocol}://' +
+            (
+                '0.0.0.0' \
+                    if (config['host'] is None or config['host'] == '') else \
+                ('[' + config['host'] + ']' if ':' in config['host'] else config['host'])
+            ) +
+            f'{(":" + str(config['port']) if config['port'] != 443 else "") if is_ssl else (":" + str(config['port']) if config['port'] != 80 else "")}/'
+        )
+
+    @staticmethod
+    def restart():
+        args = [sys.executable] + [sys.argv[0]] + sys.argv[1:]
+        os.execv(sys.executable, args)
+
+
+if __name__ == '__main__':
+    SlinnAPI.create_app('test', hosts=('well_welg.ru', 'global.marikhuana.xyz'))
+    SlinnAPI.delete_app('test')
+    SlinnAPI.set_project_name('Fobox Dev')
+    SlinnAPI.create_app_from_template('test2', 'firstrun')
+    print(SlinnAPI.get_apps())
+    print(SlinnAPI.get_link())

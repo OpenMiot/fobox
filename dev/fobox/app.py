@@ -1,5 +1,6 @@
 from slinn import ApiDispatcher, AsyncRequest, HttpResponse, Storage
 from orm.postgres import Postgres
+from slinn_api import SlinnAPI
 import geety
 import config
 
@@ -26,3 +27,7 @@ async def index(request: AsyncRequest):
     #    print(await conn.collections())
     await request.respond(HttpResponse, await page.html(context={'users': ['mrybs', '001kpp', 'test', 'мбырс', 'чинчопа <3 <br/>']}), content_type='text/html; charset=utf-8')
 
+@dp.get('restart')
+async def restart(request: AsyncRequest):
+    await request.respond(HttpResponse, 'restarting')
+    SlinnAPI.restart()

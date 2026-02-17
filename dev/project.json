@@ -10,6 +10,7 @@
         "key": false
     },
     "apps": [
+        "test2",
         "example",
         "fobox"
     ],
