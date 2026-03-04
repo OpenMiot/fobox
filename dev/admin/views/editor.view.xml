@@ -74,7 +74,9 @@
 
         <div id="editor">
             <div id="components" class="pane">
-                <div id="palletes"></div>
+                <div id="palletes">
+                    Палитра компонентов
+                </div>
                 <div id="trash" class="editor-trash">
                     <span class="material-symbols-outlined">delete_forever</span>
                 </div>

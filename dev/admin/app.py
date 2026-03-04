@@ -141,6 +141,15 @@ async def save_view(request: AsyncRequest, user: dict):
         f.write(xml)
     await request.respond(HttpJSONResponse, status='ok')
 
+@dp.get('loadView')
+@AuthMiddleware(api=True)
+@AdminOnly()
+async def load_view(request: AsyncRequest, user: dict):
+    if site_app.isfile('views/test.view.xml'):
+        await request.respond(HttpRender, 'views/test.view.xml', storage=site_app)
+    else:
+        return 404
+
 @dp.get('ping')
 async def ping(request: AsyncRequest):
     async with await fobox_db.acquire() as conn:

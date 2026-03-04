@@ -1,3 +1,4 @@
 *.journal.log
 demo
 project.json
+/app/views/test.view.xml

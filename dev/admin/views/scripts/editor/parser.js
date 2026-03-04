@@ -54,7 +54,7 @@ function parseGeetyComponent (component_element, canvas) {
 
 function parseGeety (xml, canvas) {
     const parser = new DOMParser()
-    const xmlDoc = parser.parseFromString(xml, 'text/xml')
+    const xmlDoc = parser.parseFromString(xml, 'application/xml')
     const root = xmlDoc.getElementsByTagName('Geety')[0]
     let components = []
     for (let component_element of root.children) {

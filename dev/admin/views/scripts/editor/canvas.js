@@ -39,6 +39,13 @@ class Canvas {
     getComponentById (id) {
         return this.components.get(id)
     }
+
+    getComponentInPalletesByGtag (gtag) {
+        for (let component_id of this.palletes.map(pallete => { return pallete.component_ids }).flat()) {
+            let component = this.getComponentById(component_id)
+            if (component.gtag === gtag) return component
+        }
+    }
     
     isComponentInPalletesById (id) {
         return this.palletes.map(pallete => { return pallete.component_ids }).flat().includes(id)

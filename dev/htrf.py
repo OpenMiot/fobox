@@ -24,3 +24,7 @@ def png(file: _io.BufferedReader) -> HttpResponse:
 @htrf.by_extension('json')
 def json_handler(file: _io.BufferedReader) -> HttpResponse:
     return HttpResponse(json.dumps(json.load(file), ensure_ascii=False), content_type='application/json')
+
+@htrf.by_extension('xml')
+def xml_handler(file: _io.BufferedReader) -> HttpResponse:
+    return HttpResponse(file.read(), content_type='application/xml')

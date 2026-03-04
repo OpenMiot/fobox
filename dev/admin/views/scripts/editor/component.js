@@ -197,6 +197,7 @@ class Component {
     }
     
     remove () {
+        this.clear()
         this.element.remove()
         if (this.parent) {
             this.parent.children.splice(this.parent.children.indexOf(this));
@@ -246,5 +247,19 @@ class Component {
         }
         xml += `</${this.gtag}>`
         return xml
+    }
+
+    clear () {
+        for (let child of this.children) {
+            child.remove()
+        }
+    }
+
+    setProperties (properties) {
+        this.properties.forEach(property => {
+            if (Object.hasOwn(properties, property.key)){
+                property.onchange(this.body.querySelector('*'), properties[property.key])
+            }  
+        })
     }
 }
