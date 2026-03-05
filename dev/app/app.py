@@ -1,7 +1,6 @@
-from slinn import ApiDispatcher, AsyncRequest, HttpResponse, Storage, AnyFilter
+from slinn import ApiDispatcher, AsyncRequest, HttpResponse, Storage, AnyFilter, ProjectAPI
 from orm.postgres import Postgres
 from orm import get_driver_name
-from slinn_api import SlinnAPI
 from . import app
 import geety as G
 import re
@@ -10,10 +9,10 @@ import json
 
 dp = ApiDispatcher()
 gapp = G.App(context={
-    'PNAME': SlinnAPI.get_config()['name']
+    'PNAME': ProjectAPI.get_config()['name']
 })
 
-for db in SlinnAPI.get_config()['dbs']:
+for db in ProjectAPI.get_config()['dbs']:
     match get_driver_name(db['dsn']):
         case 'postgres':
             gapp.add_database_pool(Postgres(
@@ -21,8 +20,8 @@ for db in SlinnAPI.get_config()['dbs']:
                 server_settings=db['server_settings']
             ))
 
-views = Storage(app.path + '/views')
-palletes = Storage(app.path + '/../Palletes')
+views = Storage('views', package=__package__)
+palletes = Storage('Palletes')
 
 def reload_components():
     gapp.components = {}

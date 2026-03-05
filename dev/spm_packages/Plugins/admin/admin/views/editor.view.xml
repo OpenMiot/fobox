@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<Geety xmlns:G="Geety" xmlns:DB="DB@1">
+    <View>
+        <FoboxBase/>
+
+        <link rel="stylesheet" href="/fobox/styles/editor/root.css"/>
+        <link rel="stylesheet" href="/fobox/styles/editor/component.css"/>
+        <link rel="stylesheet" href="/fobox/styles/editor/canvas.css"/>
+        <link rel="stylesheet" href="/fobox/styles/editor/pallete.css"/>
+        <link rel="stylesheet" href="/fobox/styles/editor/properties.css"/>
+        <link rel="stylesheet" href="/fobox/styles/editor/trash.css"/>
+        <link rel="stylesheet" href="/fobox/styles/editor/contextmenu.css"/>
+        <script src="/fobox/scripts/editor/misc.js"/>
+        <script src="/fobox/scripts/editor/component.js"/>
+        <script src="/fobox/scripts/editor/canvas.js"/>
+        <script src="/fobox/scripts/editor/pallete.js"/>
+        <script src="/fobox/scripts/editor/parser.js"/>
+        <script src="/fobox/scripts/editor/property.js"/>
+        <script src="/fobox/scripts/editor/properties.js"/>
+        <script src="/fobox/scripts/editor/trash.js"/>
+        <script src="/fobox/scripts/editor/contextmenu.js"/>
+
+        <G:Page
+            title="Редактор сайта | Fobox"
+            robots="noindex, nofollow"/>
+        <Header/>
+
+        <style>
+            #editor{
+                display: flex;
+            }
+            .pane{
+                height: max-content;
+                border-right: 1px solid var(--border);
+                height: auto;
+            }
+            .pane:last-of-type{
+                border-right: none;
+            }
+            #components{
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                position: sticky;
+                height: calc(100vh - 50px);
+                top: 45px;
+                max-width: 370px;
+            }
+            #canvas{
+                width: stretch;
+                width: -moz-available;
+                width: -webkit-fill-available;
+                background: var(--bg-color);
+                overflow-x: scroll;
+            }
+            #properties{
+                min-width: 350px;
+                position: sticky;
+                height: calc(100vh - 50px);
+                top: 45px;
+            }
+            #palletes {
+                overflow-y: scroll;
+            }
+            .pallete {
+                border: 1px solid var(--border);
+                margin: 2px;
+                border-radius: 5px;
+            }
+            .pallete>*:first-child{
+                text-align: center;
+                user-select: none;
+            }
+        </style>
+
+        <div id="editor">
+            <div id="components" class="pane">
+                <div id="palletes">
+                    Палитра компонентов
+                </div>
+                <div id="trash" class="editor-trash">
+                    <span class="material-symbols-outlined">delete_forever</span>
+                </div>
+            </div>
+            <div id="canvas" class="pane editor-canvas">
+                <h2 class="editor-info-h2">Переместите первый элемент из палитры</h2>
+            </div>
+            <div id="properties" class="pane editor-properties"></div>
+        </div>
+
+        <script src="/fobox/scripts/editor.js"/>
+    </View>
+</Geety>

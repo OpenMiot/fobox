@@ -125,6 +125,14 @@ class Component:
         component.args.pop('{Geety}Extends', None)
         self.args.pop('{Geety}Extends', None)
         sargs = await var_pattern_apply_args(self.args, context, page, prevs+[self])
+        if self.tag in page.components and not self.is_def():
+            signature = eval_args(await var_pattern_apply_args({
+                arg.args['name']: arg.args.get('def')
+                for arg in component.find_all_by_tag('{Geety}Arg')
+            }, context, page, prevs+[self]))
+            if component.is_def():
+                merge_dicts(signature, eval_args(await var_pattern_apply_args(self.args, context, page, prevs+[self])))
+                merge_dicts(context, signature)
         cargs = await var_pattern_apply_args(component.args, context, page, prevs+[self])
 
         html = ''
@@ -323,13 +331,6 @@ class Component:
                         else:
                             html += await child.render(page, context, prevs+[self])
                 elif self.tag in page.components and not self.is_def():
-                    signature = eval_args(await var_pattern_apply_args({
-                        arg.args['name']: arg.args.get('def')
-                        for arg in component.find_all_by_tag('{Geety}Arg')
-                    }, context, page, prevs+[self]))
-                    if component.is_def():
-                        merge_dicts(signature, eval_args(await var_pattern_apply_args(self.args, context, page, prevs+[self])))
-                        merge_dicts(context, signature)
                     component.args = await var_pattern_apply_args(component.args, context, page, prevs+[self])
                     context.update(component.args)
                     html += await page.components[self.tag].copy().render(page, context, prevs+[RenderedComponent.from_component(

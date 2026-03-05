@@ -2,10 +2,10 @@ import smtplib
 import asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from slinn_api import SlinnAPI
+from slinn import ProjectAPI
 
 
-CONFIG = SlinnAPI.get_config()
+CONFIG = ProjectAPI.get_config()
 
 
 def _send_email(

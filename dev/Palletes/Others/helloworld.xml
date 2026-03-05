@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<Geety xmlns:Geety="Geety" xmlns:F="Fobox">
+    <HelloWorld>
+        <F:Name>Приветственное сообщение</F:Name>
+
+        <style>
+            h1{
+                font-weight: bold;
+            }
+        </style>
+
+        <h1>Приветствуем в fobox!</h1>
+        <p>
+            Если вы видите эту страницу, значит ваш сайт на fobox успешно создан и запущен. 
+            Необходима его дальнейшая настройка в <a href="/fobox" target="_blank">панели управления</a>.
+        </p>
+        <p>
+            За информацией о конструкторе переходите на <a href="https://github.com/OpenMiot/fobox" target="_blank">GitHub репозиторий проекта</a>.
+        </p>
+        <p>
+            <i>Спасибо за использование fobox.</i>
+        </p>
+    </HelloWorld>
+</Geety>

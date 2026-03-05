@@ -2,7 +2,7 @@ from slinn.slinn_app_api import SlinnAppAPI
 import sys, importlib
 
 
-app = SlinnAppAPI('./app')
+app = SlinnAppAPI('.', package=__package__)
 
 
 if 'app.app' not in sys.modules.keys():
