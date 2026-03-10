@@ -10,7 +10,7 @@ class CreateAdminMigration(AdminBaseMigration):
     @property
     def dependencies(self) -> tuple[str, ...]:
         return (
-            'UsersMigration.admin',
+            'UsersMigration.core',
         )
 
     async def check(self) -> bool:

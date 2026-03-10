@@ -4,3 +4,4 @@ venv/
 *.pyc
 .vscode/
 image/
+fobox-orm/main.py

@@ -1,7 +1,7 @@
-from . import AdminBaseMigration
+from . import CoreBaseMigration
 
 
-class RolesCollectionMigration(AdminBaseMigration):
+class RolesCollectionMigration(CoreBaseMigration):
     async def check(self) -> bool:
         return True
 

@@ -1,6 +1,7 @@
 from slinn.tools.manage.colorcodes import *
 from slinn.tools.manage.misc import (
-    replace_all, add_quotes_to_list, config, packages, get_dispatchers, app_config, load_imports, app_reload
+    replace_all, add_quotes_to_list, config, packages, get_dispatchers, app_config, load_imports, app_reload,
+    load_migrations, load_migrations_from_zip
 )
 from slinn.tools.manage.command import Command
 from slinn.tools.manage.defaults import APP_CONFIG
@@ -11,6 +12,9 @@ import os
 import shutil
 import json
 import slinn
+import asyncio
+import inspect
+import warnings
 
 
 root_command = Command()
@@ -31,11 +35,33 @@ def run_command():
             apps_info.append('[' + STRIKE + app + NONSTRIKE + ']')
 
     plugins_info = []
-    for key, plugin in pkgs['plugins'].items():
+    for plugin in pkgs['plugins'].values():
         if plugin['enabled']:
             plugins_info.append(plugin['displayName'])
         else:
             plugins_info.append('[' + STRIKE + plugin['displayName'] + NONSTRIKE + ']')
+    
+    def plugins_sorted(plugins):
+        _plugins = {}
+        for key, plugin in plugins.items():
+            for dependency in plugin.get('dependencies', []):
+                if dependency.split('@')[0] in pkgs['plugins']:
+                    _plugins.update(plugins_sorted({
+                        key: pkgs['plugins'][key]
+                        for key in plugins
+                        if key == dependency.split('@')[0]
+                    }))
+                else:
+                    print(f'{RED}Dependency {dependency.split("@")[0]} for {plugin["displayName"]} plugin is not resolved.{RESET}')
+                    print(f'Install it via {BOLD}Slinn Package Manager{RESET}:')
+                    print(f'  1. {GRAY}${RESET} {BOLD}spm update{RESET}')
+                    print(f'  2. {GRAY}${RESET} {BOLD}spm install {dependency}{RESET}')
+                    exit(1)
+            _plugins[key] = plugin
+        return _plugins
+    
+    pkgs['plugins'] = plugins_sorted(pkgs['plugins'])
+        
 
     plugins_zip = {
         key: plugin
@@ -51,7 +77,7 @@ def run_command():
 
     dps = get_dispatchers(cfg['apps'], plugins_zip, plugins_dir, cfg["debug"])
     if not dps:
-        return print(f'{RED}Dispatchers not found. Check your apps and ./project.json{RESET}')
+        return print(f'{RED}Dispatchers not found. Check your apps, packages and ./project.json{RESET}')
 
     print(GRAY, end='')
     if apps_info:
@@ -120,7 +146,7 @@ def create_command(args):
     return print(f'{GREEN}App successfully created{RESET}')
 
 
-@root_command.subcommand('delete', ('name', ))
+@root_command.subcommand('delete', ('name',))
 def delete_command(args):
     apppath = (args['path'] + '?').replace('/?', '').replace('?', '') if 'path' in args.keys() else '.'
     if 'name' not in args.keys():
@@ -197,7 +223,7 @@ def template_command(args):
         print(f'{BLUE}Template {args["name"]} not found{RESET}')
 
 
-@root_command.subcommand('migrate_app', ('name', ))
+@root_command.subcommand('migrate_app', ('name',))
 def migrate_app_command(args):
     if 'name' not in args.keys():
         return print(f'{RED}The app`s name is not specified{RESET}')
@@ -212,6 +238,71 @@ def migrate_app_command(args):
     with open(f'{ensure_appname}/config.json', 'w') as f:
         json.dump(APP_CONFIG, f, indent=4)
     return print(f'{GREEN}App successfully migrated{RESET}')
+
+
+@root_command.subcommand('makemigrations')
+def apply_all_migrations(args):
+    warnings.filterwarnings("ignore", category=DeprecationWarning)  # TODO: fix warnings
+
+    migrations = {
+        migration.cls.__name__: migration
+        for migration in load_migrations(
+            os.path.join(os.path.dirname(__file__), f'migrations/*.py'),
+            'migrations'
+        )
+    }
+
+    pkgs = packages()
+
+    for key in {
+        key: plugin
+        for key, plugin in pkgs['plugins'].items()
+        if plugin['enabled'] and plugin['zip']
+    }:
+        migrations.update({
+            migration.cls.__name__ + f'.{key}': migration
+            for migration in load_migrations_from_zip(
+                os.path.join(os.path.dirname(__file__), f'spm_packages/Plugins/{key}.zip'),
+                f'spm_packages.Plugins.{key}.migrations'
+            )
+        })
+
+    for key in {
+        key: plugin
+        for key, plugin in pkgs['plugins'].items()
+        if plugin['enabled'] and not plugin['zip']
+    }:
+        migrations.update({
+            migration.cls.__name__ + f'.{key}': migration
+            for migration in load_migrations(
+                os.path.join(os.path.dirname(__file__), f'spm_packages/Plugins/{key}/migrations/*.py'),
+                f'spm_packages.Plugins.{key}.migrations'
+            )
+        })
+
+    print(f'{BLUE}Found {len(migrations)} migrations{RESET}')
+
+    async def check_and_apply_migration(migration_meta):
+        migration = migration_meta.cls()
+        for dependency in migration.dependencies:
+            if not migrations[dependency].applied:
+                await check_and_apply_migration(migrations[dependency])
+        print(f'{GRAY}  - Checking {migration_meta.cls.__name__} from migrations/{migration_meta.basename}... ', end='')
+        if await migration.check():
+            print(f'{GREEN}+{RESET}')
+            print(
+                f'{GRAY}  - Applying {migration_meta.cls.__name__} from migrations/{migration_meta.basename}...{RESET}')
+            await migration.apply()
+        else:
+            print(f'{RED}-{RESET}')
+        migration_meta.set_applied()
+
+    for migration_meta in migrations.values():
+        if migration_meta.applied:
+            continue
+        asyncio.run(check_and_apply_migration(migration_meta))
+
+    warnings.filterwarnings("default", category=DeprecationWarning)
 
 
 @root_command.command_not_exists()

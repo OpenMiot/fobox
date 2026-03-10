@@ -9,11 +9,7 @@
         "fullchain": false,
         "key": false
     },
-    "apps": [
-        "auth",
-        "app",
-        "admin"
-    ],
+    "apps": [],
     "smart_navigation": true,
     "timeout": 0.5,
     "max_bytes_per_receive": 4096,

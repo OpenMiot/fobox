@@ -2,6 +2,7 @@ from slinn import ApiDispatcher, AsyncRequest, HttpResponse, Storage, HttpRedire
 from slinn.utils import optional
 from . import app
 from .db_init import gapp, fobox_db
+from core.middlewares import AuthMiddleware
 import functools
 import json
 import urllib.parse
@@ -14,24 +15,6 @@ components = Storage('Components', package=__package__)
 palletes = Storage('Palletes')
 site_app = Storage('app')
 
-
-class AuthMiddleware(IMiddleware):
-    def __init__(self, *, api: bool=False):
-        super().__init__()
-        self.api = api
-
-    def __call__(self, func):
-
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            user = await get_user(kwargs['request'])
-            if not user:
-                if self.api:
-                    return 401
-                return HttpRedirect(f'/auth?redirect_uri={urllib.parse.quote(kwargs['request'].full_link)}')
-            return await optional(func, *args, **(kwargs|{'user': user}))
-
-        return wrapper
 
 class AdminOnly(IMiddleware):
     def __init__(self):
@@ -58,28 +41,8 @@ def reload_components():
                 gapp.load(component)
 
 
-async def get_user(request: AsyncRequest):
-    token = request.args.get('token', '') or \
-            request.cookies.get('Token', '') or \
-            (
-                request.headers['Authorization'].removeprefix('Bearer ')
-                if 'Authorization' in request.headers.keys() else ''
-            )
-    if not token:
-        return None
-    async with await fobox_db.acquire() as conn:
-        session = await conn._fobox_active_sessions.find_one({
-            'token': token
-        })
-        if not session:
-            return None
-        return await conn._fobox_users.find_one({
-            'id': session['user_id']
-        })
-
-
 @dp.get()
-@AuthMiddleware()
+@AuthMiddleware(fobox_db)
 @AdminOnly()
 async def index(request: AsyncRequest, user: dict):
     reload_components()
@@ -91,7 +54,7 @@ async def index(request: AsyncRequest, user: dict):
         }), content_type='text/html; charset=utf-8')
 
 @dp.get('editor')
-@AuthMiddleware()
+@AuthMiddleware(fobox_db)
 @AdminOnly()
 async def editor(request: AsyncRequest, user: dict):
     reload_components()
@@ -108,7 +71,7 @@ async def editor(request: AsyncRequest, user: dict):
         }), content_type='text/html; charset=utf-8')
 
 @dp.get('palletes')
-@AuthMiddleware(api=True)
+@AuthMiddleware(fobox_db, api=True)
 @AdminOnly()
 async def get_palletes(request: AsyncRequest, user: dict):
     if not palletes.isfile('palletes.json'):
@@ -119,7 +82,7 @@ async def get_palletes(request: AsyncRequest, user: dict):
     await request.respond(HttpRender, 'palletes.json', storage=palletes)
 
 @dp.get('palletes/<str path>')
-@AuthMiddleware(api=True)
+@AuthMiddleware(fobox_db, api=True)
 @AdminOnly()
 async def get_pallete(request: AsyncRequest, user: dict, path: str):
     if not palletes.isdir(path):
@@ -137,7 +100,7 @@ async def get_pallete(request: AsyncRequest, user: dict, path: str):
     await request.respond(HttpJSONResponse, **result)
 
 @dp.post('saveView')
-@AuthMiddleware(api=True)
+@AuthMiddleware(fobox_db, api=True)
 @AdminOnly()
 async def save_view(request: AsyncRequest, user: dict):
     xml = await request.body.get()
@@ -146,7 +109,7 @@ async def save_view(request: AsyncRequest, user: dict):
     await request.respond(HttpJSONResponse, status='ok')
 
 @dp.get('loadView')
-@AuthMiddleware(api=True)
+@AuthMiddleware(fobox_db, api=True)
 @AdminOnly()
 async def load_view(request: AsyncRequest, user: dict):
     if site_app.isfile('views/test.view.xml'):

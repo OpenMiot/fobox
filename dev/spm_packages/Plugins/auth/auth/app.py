@@ -2,13 +2,13 @@ from slinn import ApiDispatcher, AsyncRequest, Storage, HttpResponse, HttpGETRed
 from . import app
 from orm.postgres import Postgres
 from orm import get_driver_name
+from core import email_tools
 import geety as G
 import datetime
 import secrets
 import urllib.parse
 import bcrypt
 import json
-import email_tools
 import string
 import re
 

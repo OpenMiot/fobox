@@ -24,7 +24,15 @@
             "zip": false,
             "includes": [
                 "spm_packages/Plugins/admin"
-            ]
+            ],
+            "dependencies": [
+                "core@fobox.core"
+            ],
+            "plugin": {
+                "dispatchers": [
+                    "dp"
+                ]
+            }
         },
         "auth": {
             "displayName": "Auth",
@@ -50,6 +58,40 @@
             "zip": false,
             "includes": [
                 "spm_packages/Plugins/auth"
+            ],
+            "dependencies": [
+                "admin@fobox.core"
+            ],
+            "plugin": {
+                "dispatchers": [
+                    "dp"
+                ]
+            }
+        },
+        "core": {
+            "displayName": "Core",
+            "description": "Core plugin for Fobox",
+            "version": {
+                "major": 1,
+                "minor": 0,
+                "patch": 0
+            },
+            "contributors": [
+                {
+                    "name": "Mark Radin",
+                    "email": "openmiot@gmail.com"
+                }
+            ],
+            "links": [
+                {
+                    "displayName": "GitHub",
+                    "url": "https://github.com/OpenMiot/fobox"
+                }
+            ],
+            "enabled": true,
+            "zip": false,
+            "includes": [
+                "spm_packages/Plugins/core"
             ]
         }
     },

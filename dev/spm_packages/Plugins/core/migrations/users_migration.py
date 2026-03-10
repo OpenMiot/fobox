@@ -1,11 +1,11 @@
-from . import AdminBaseMigration
+from . import CoreBaseMigration
 
 
-class UsersMigration(AdminBaseMigration):
+class UsersMigration(CoreBaseMigration):
     @property
     def dependencies(self) -> tuple[str, ...]:
         return (
-            'RolesMigration.admin',
+            'RolesMigration.core',
         )
 
     async def check(self) -> bool:

@@ -1,7 +1,7 @@
-from . import AdminBaseMigration
+from . import CoreBaseMigration
 
 
-class EmailCodesMigration(AdminBaseMigration):
+class EmailCodesMigration(CoreBaseMigration):
     async def check(self) -> bool:
         return True
 

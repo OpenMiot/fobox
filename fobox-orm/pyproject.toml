@@ -3,17 +3,16 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "geety"
-version = "0.0.2"
-description = "XML based web-language"
+name = "fobox-orm"
+version = "0.0.1"
+description = "ORM for Fobox"
 requires-python = ">=3.14"
 authors = [{ name = "Mark Radin", email = "openmiot@gmail.com" }]
 
 [project.optional-dependencies]
-orm = ["fobox-orm"]
-postgres = ["fobox-orm[postgres]"]
-full = ["fobox-orm[full]"]
+postgres = ["asyncpg"]
+full = ["fobox-orm[postgres]"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["geety*"]
+include = ["orm*"]
